@@ -319,6 +319,18 @@
     border-radius: 4px; padding: 2px 6px; font-family: 'Courier New', monospace;
   }
 
+  .frame-regen-btn {
+    position: absolute; top: 6px; right: 6px; z-index: 5;
+    width: 26px; height: 26px;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.65); border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 6px; color: #fff; font-size: 13px; cursor: pointer;
+    transition: background 0.15s, transform 0.4s;
+  }
+  .frame-card:hover .frame-regen-btn { display: flex; }
+  .frame-regen-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .frame-regen-btn.spinning { display: flex; animation: spin 0.8s linear infinite; pointer-events: none; }
+
   .frame-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 1; }
   .frame-loading-spinner { width: 20px; height: 20px; border: 1.5px solid rgba(255,255,255,0.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
   .frame-loading-text { font-size: 10px; color: var(--text-muted); }
@@ -493,8 +505,9 @@
       <div class="controls-row">
         <div class="ctrl-group">
           <label class="ctrl-label">Görsel stil</label>
-          <select id="stylePreset" class="ctrl-input">
+          <select id="stylePreset" class="ctrl-input" onchange="onStyleChange()">
             <option value="">Seçili değil</option>
+            <option value="__custom__">✎ Özel stil yaz…</option>
             <option value="cinematic film still, anamorphic lens, dramatic lighting">Sinematik</option>
             <option value="anime storyboard, studio ghibli style, detailed cel shading">Anime</option>
             <option value="noir film, black and white, high contrast shadows">Noir</option>
@@ -510,6 +523,7 @@
             <option value="vintage film photograph, grain, faded colors, retro">Vintage</option>
             <option value="hyperrealistic, ultra detailed, sharp focus, 8k">Hiperrealist</option>
           </select>
+          <span id="styleLockNote" style="display:none;font-size:10px;color:var(--accent);margin-top:3px;">🔒 Referans görsel yüklü — tarz ondan alınacak</span>
         </div>
         <div class="ctrl-group">
           <label class="ctrl-label">En boy oranı</label>
@@ -555,6 +569,14 @@
         <button class="generate-btn" id="generateBtn" onclick="generate()">
           <span>▶</span> Üret
         </button>
+      </div>
+
+      <div class="controls-row" id="customStyleRow" style="display:none;">
+        <div class="ctrl-group wide">
+          <label class="ctrl-label">Özel stil tanımı — İngilizce yazmak daha iyi sonuç verir</label>
+          <input id="customStyle" class="ctrl-input" type="text"
+            placeholder="Örn: low poly 3D, pastel colors, soft shadows, isometric view" />
+        </div>
       </div>
     </div>
 
@@ -620,8 +642,9 @@
       <div class="prompt-label">Görsel prompt</div>
       <div class="prompt-box" id="modalPrompt"></div>
       <div class="modal-footer">
-        <button class="copy-btn" onclick="downloadFrame()">↓ İndir (.txt)</button>
-        <button class="copy-btn accent" onclick="copyModalPrompt()">⧉ Prompt kopyala</button>
+        <button class="copy-btn" onclick="downloadImage()">↓ Görseli indir</button>
+        <button class="copy-btn" onclick="copyModalPrompt()">⧉ Prompt kopyala</button>
+        <button class="copy-btn accent" onclick="regenerateFromModal()">↻ Yeniden üret</button>
       </div>
     </div>
   </div>
@@ -634,6 +657,7 @@ let doneCount = 0;
 let apiKey = localStorage.getItem('frameai_openai_key') || '';
 let refImageBase64 = null; // referans görsel (base64)
 let refImageBlob = null;   // referans görsel (blob, edit endpoint için)
+let refStyleDescription = null; // referansın analiz edilmiş tarz tanımı (İngilizce)
 
 // Init key display
 if (apiKey) {
@@ -652,6 +676,9 @@ function handleRefUpload(e) {
     document.getElementById('refFileName').textContent = file.name;
     document.getElementById('refEmpty').style.display = 'none';
     document.getElementById('refPreview').style.display = 'flex';
+    // Referans yüklendi → stil seçimini kilitle
+    lockStyleSelector(true);
+    refStyleDescription = null; // üretim sırasında analiz edilecek
   };
   reader.readAsDataURL(file);
 }
@@ -659,9 +686,90 @@ function handleRefUpload(e) {
 function removeRef() {
   refImageBase64 = null;
   refImageBlob = null;
+  refStyleDescription = null;
   document.getElementById('refInput').value = '';
   document.getElementById('refEmpty').style.display = 'flex';
   document.getElementById('refPreview').style.display = 'none';
+  // Stil seçimini tekrar aç
+  lockStyleSelector(false);
+}
+
+// Referans varken stil seçimini devre dışı bırak
+function lockStyleSelector(locked) {
+  const sel = document.getElementById('stylePreset');
+  const customRow = document.getElementById('customStyleRow');
+  const note = document.getElementById('styleLockNote');
+  sel.disabled = locked;
+  sel.style.opacity = locked ? '0.4' : '1';
+  sel.style.cursor = locked ? 'not-allowed' : '';
+  if (locked) {
+    customRow.style.display = 'none';
+    if (note) note.style.display = 'block';
+  } else {
+    if (note) note.style.display = 'none';
+  }
+}
+
+// Referans görselin tarzını kelimelere döker (tek seferlik vision çağrısı)
+async function analyzeRefStyle() {
+  setStatus('Referans görselin tarzı analiz ediliyor…', true);
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Analyze ONLY the visual STYLE of this reference image — not its content or subject.
+Describe the artistic rendering technique in precise English keywords that can be appended to image generation prompts.
+Focus on: medium (e.g. pencil sketch, oil painting, 3D render), color treatment (e.g. grayscale, monochrome, muted pastel), line quality, shading method (e.g. soft cross-hatching, cel shading), texture, level of detail, and overall mood.
+Return ONLY a single comma-separated list of style descriptors in English. No sentences, no explanation, no mention of what objects are in the image. Example output: "graphite pencil sketch, grayscale, soft shading, realistic proportions, fine cross-hatching, muted tones, hand-drawn texture"`
+          },
+          { type: 'image_url', image_url: { url: refImageBase64 } }
+        ]
+      }]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  let desc = data.choices[0].message.content.trim();
+  // Olası tırnak/markdown temizliği
+  desc = desc.replace(/^["'`]+|["'`]+$/g, '').replace(/\n/g, ' ').trim();
+  return desc;
+}
+
+function onStyleChange() {
+  const sel = document.getElementById('stylePreset');
+  const customRow = document.getElementById('customStyleRow');
+  if (sel.value === '__custom__') {
+    customRow.style.display = 'flex';
+    document.getElementById('customStyle').focus();
+  } else {
+    customRow.style.display = 'none';
+  }
+}
+
+// Seçili stili döndürür (özel stil yazılmışsa onu)
+function getStyleValue() {
+  const sel = document.getElementById('stylePreset');
+  if (sel.value === '__custom__') {
+    return document.getElementById('customStyle').value.trim();
+  }
+  return sel.value;
+}
+
+function getStyleLabel() {
+  const sel = document.getElementById('stylePreset');
+  if (sel.value === '__custom__') {
+    const c = document.getElementById('customStyle').value.trim();
+    return c ? 'Özel: ' + c.slice(0, 30) : 'Özel';
+  }
+  if (!sel.value) return 'Serbest';
+  return sel.options[sel.selectedIndex].text;
 }
 
 function saveKey() {
@@ -705,7 +813,6 @@ async function generate() {
 
   const mainPrompt = document.getElementById('mainPrompt').value.trim();
   const count  = parseInt(document.getElementById('frameCount').value);
-  const style  = document.getElementById('stylePreset').value;
   const arSel  = document.getElementById('aspectRatio');
   const aspectRatio = arSel.value;
   const btn    = document.getElementById('generateBtn');
@@ -717,18 +824,43 @@ async function generate() {
   doneCount = 0;
   document.getElementById('board').style.display = 'none';
   setProgress(0, 0);
-  setStatus('Sahne prompt\'ları oluşturuluyor…', true);
-
-  const styleText = style ? `Stil: ${style}` : 'Stil: serbest, senaryoya en uygun görsel dili seç';
-  const stylePromptPart = style ? `${style}, ` : '';
-  const refNote = refImageBase64
-    ? '\nKullanıcı bir referans görsel yükledi. Bu referans görselin tarzını, renk paletini, atmosferini ve genel estetiğini analiz et ve her karenin promptuna bu tarzı yansıt.'
-    : '';
 
   try {
-    const userContent = [{
-      type: 'text',
-      text: `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
+    let effectiveStyle; // tüm karelere uygulanacak nihai stil
+
+    if (refImageBase64) {
+      // 1) Referans varsa: önce tarzı kelimelere dök, manuel stili yok say
+      if (!refStyleDescription) {
+        refStyleDescription = await analyzeRefStyle();
+      }
+      effectiveStyle = refStyleDescription;
+      // Analiz edilen tarzı kullanıcıya göster
+      const fnEl = document.getElementById('refFileName');
+      if (fnEl) fnEl.textContent = 'Algılanan tarz: ' + refStyleDescription.slice(0, 70) + (refStyleDescription.length > 70 ? '…' : '');
+    } else {
+      // Referans yoksa: manuel/özel seçilen stil
+      effectiveStyle = getStyleValue();
+    }
+
+    setStatus('Sahne prompt\'ları oluşturuluyor…', true);
+
+    const styleText = effectiveStyle
+      ? `ZORUNLU GÖRSEL STİL (her karede birebir uygulanacak): ${effectiveStyle}`
+      : 'Stil: serbest, senaryoya en uygun görsel dili seç';
+    const stylePromptPart = effectiveStyle ? `${effectiveStyle}, ` : '';
+    const refNote = refImageBase64
+      ? `\n\nÇOK ÖNEMLİ: Tüm kareler aynı görsel stilde olmalı. Yukarıdaki ZORUNLU GÖRSEL STİL tanımını HER karenin prompt'una eksiksiz ekle. Bu stil bir referans görselden çıkarıldı; renk tekniği, çizim tekniği ve atmosfer tüm karelerde tutarlı olmalı. Sahnenin içeriği değişse de stil asla değişmeyecek.`
+      : '';
+
+    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 2200,
+        messages: [{
+          role: 'user',
+          content: `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
 Aşağıdaki senaryo için tam olarak ${count} kare üret.
 ${styleText}
 En boy oranı: ${aspectRatio}
@@ -737,24 +869,11 @@ Senaryo: ${mainPrompt}${refNote}
 Her kare için:
 - title: kısa sahne başlığı (Türkçe, max 4 kelime)
 - desc: sahne özeti (Türkçe, 1 cümle)
-- prompt: gpt-image için İngilizce görsel prompt — shot type, kamera açısı, ışık, atmosfer, ${stylePromptPart}dahil et. Her kare farklı kompozisyon olsun. "${aspectRatio} aspect ratio" ile bitir.
+- prompt: gpt-image için İngilizce görsel prompt. Şu sırayla yaz: önce sahne içeriği (shot type, kamera açısı, ışık, atmosfer), sonra MUTLAKA bu stil ekini ekle: "${stylePromptPart}${aspectRatio} aspect ratio". Her kare farklı kompozisyon olsun ama stil eki tüm karelerde AYNI kalsın.
 
 SADECE JSON array döndür:
 [{"title":"...","desc":"...","prompt":"..."},...]`
-    }];
-
-    // Referans görsel varsa vision için ekle
-    if (refImageBase64) {
-      userContent.push({ type: 'image_url', image_url: { url: refImageBase64 } });
-    }
-
-    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: userContent }]
+        }]
       })
     });
 
@@ -773,7 +892,7 @@ SADECE JSON array döndür:
 
     await generateImages(arSel);
 
-    const styleName = style ? document.getElementById('stylePreset').options[document.getElementById('stylePreset').selectedIndex].text : 'Serbest';
+    const styleName = refImageBase64 ? 'Referans tarzı' : getStyleLabel();
     document.getElementById('boardMeta').textContent = `${frames.length} kare · ${styleName} · ${aspectRatio} · tamamlandı`;
     setProgress(0, 0);
 
@@ -790,59 +909,21 @@ async function generateImages(arSel) {
   let idx = 0;
 
   // gpt-image-1 sadece 3 boyut destekler: 1024x1024, 1536x1024 (yatay), 1024x1536 (dikey)
-  // Seçilen orana göre en yakını eşle
   const w = parseInt(arSel.selectedOptions[0].dataset.w);
   const h = parseInt(arSel.selectedOptions[0].dataset.h);
   let imageSize;
-  if (Math.abs(w - h) < 60) imageSize = '1024x1024';      // kareye yakın
-  else if (w > h) imageSize = '1536x1024';                 // yatay
-  else imageSize = '1024x1536';                            // dikey
+  if (Math.abs(w - h) < 60) imageSize = '1024x1024';
+  else if (w > h) imageSize = '1536x1024';
+  else imageSize = '1024x1536';
+
+  // Her kareye imageSize'ı kaydet ki sonradan yeniden üretebilelim
+  frames.forEach(f => { f.imageSize = imageSize; });
 
   async function next() {
     while (idx < total) {
       const i = idx++;
       updateFrameStatus(i, 'generating');
-      try {
-        let res;
-        if (refImageBlob) {
-          // Referans görsel varsa edits endpoint kullan (tarz transferi)
-          const fd = new FormData();
-          fd.append('model', 'gpt-image-1');
-          fd.append('image', refImageBlob);
-          fd.append('prompt', frames[i].prompt);
-          fd.append('n', '1');
-          fd.append('size', imageSize);
-          res = await fetch('https://api.openai.com/v1/images/edits', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: fd
-          });
-        } else {
-          res = await fetch('https://api.openai.com/v1/images/generations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-            body: JSON.stringify({
-              model: 'gpt-image-1',
-              prompt: frames[i].prompt,
-              n: 1,
-              size: imageSize
-            })
-          });
-        }
-
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-
-        const b64 = data.data[0].b64_json;
-        const src = 'data:image/png;base64,' + b64;
-        frames[i].img = src;
-        frames[i].status = 'done';
-        updateFrameImage(i, src);
-      } catch(e) {
-        frames[i].status = 'error';
-        updateFrameStatus(i, 'error');
-        console.error('Frame', i, e);
-      }
+      await generateSingleImage(i, imageSize);
       doneCount++;
       setProgress(doneCount, total);
     }
@@ -851,6 +932,66 @@ async function generateImages(arSel) {
   const workers = Array.from({ length: CONCURRENCY }, next);
   await Promise.all(workers);
 }
+
+// Tek bir kareyi üretir (hem toplu hem yeniden-üret bunu kullanır)
+async function generateSingleImage(i, imageSize) {
+  try {
+    // Stil artık prompt metnine gömülü olduğu için her zaman generations kullanıyoruz.
+    // (edits endpoint referansı base görsel sayıp üstüne çizdiği için tarzı bozuyordu.)
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: frames[i].prompt,
+        n: 1,
+        size: imageSize
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const b64 = data.data[0].b64_json;
+    const src = 'data:image/png;base64,' + b64;
+    frames[i].img = src;
+    frames[i].status = 'done';
+    updateFrameImage(i, src);
+    return true;
+  } catch(e) {
+    frames[i].status = 'error';
+    updateFrameStatus(i, 'error');
+    console.error('Frame', i, e);
+    return false;
+  }
+}
+
+// Tek kareyi yeniden üret (sol üstteki butondan)
+async function regenerateFrame(i) {
+  if (!apiKey) return;
+  const f = frames[i];
+  const imageSize = f.imageSize || '1536x1024';
+
+  // Kareyi loading durumuna al
+  f.status = 'generating';
+  f.img = null;
+  const visual = document.getElementById(`visual-${i}`);
+  const overlay = document.getElementById(`overlay-${i}`);
+  const regenBtn = document.getElementById(`regen-${i}`);
+  if (regenBtn) regenBtn.classList.add('spinning');
+  // varsa eski görseli kaldır
+  const oldImg = visual ? visual.querySelector('img') : null;
+  if (oldImg) oldImg.remove();
+  const loading = document.getElementById(`loading-${i}`);
+  if (loading) { loading.style.display = 'flex'; loading.querySelector('.frame-loading-text').textContent = 'Yeniden üretiliyor…'; }
+  if (overlay) overlay.style.display = 'none';
+  updateFrameStatus(i, 'generating');
+
+  await generateSingleImage(i, imageSize);
+  if (regenBtn) regenBtn.classList.remove('spinning');
+}
+
+
 
 function renderBoard() {
   const cols = document.getElementById('colCount').value;
@@ -870,6 +1011,7 @@ function renderBoard() {
     card.innerHTML = `
       <div class="frame-visual" id="visual-${i}" style="--frame-ar:${arCss};">
         <div class="frame-num-badge">${String(i+1).padStart(2,'0')}</div>
+        <button class="frame-regen-btn" id="regen-${i}" title="Bu kareyi yeniden üret" onclick="event.stopPropagation();regenerateFrame(${i})">↻</button>
         <div class="frame-loading" id="loading-${i}">
           <div class="frame-loading-spinner"></div>
           <div class="frame-loading-text">Üretiliyor…</div>
@@ -957,6 +1099,42 @@ function downloadFrame() {
   const blob = new Blob([txt], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `kare-${String(activeIdx+1).padStart(2,'0')}.txt`; a.click();
+}
+
+// Modaldaki görseli PNG olarak indir
+function downloadImage() {
+  if (activeIdx === null) return;
+  const f = frames[activeIdx];
+  if (!f.img) { setStatus('Bu kare için henüz görsel yok.', false); return; }
+  const a = document.createElement('a');
+  a.href = f.img;
+  a.download = `kare-${String(activeIdx+1).padStart(2,'0')}-${(f.title||'').replace(/\s+/g,'-')}.png`;
+  a.click();
+}
+
+// Modaldan kareyi yeniden üret, sonra modalı güncelle
+async function regenerateFromModal() {
+  if (activeIdx === null || !apiKey) return;
+  const i = activeIdx;
+  const btn = document.querySelector('.modal-footer .copy-btn.accent');
+  const orig = btn.innerHTML;
+  btn.textContent = '↻ Üretiliyor…';
+  btn.style.pointerEvents = 'none';
+
+  await regenerateFrame(i);
+
+  // Modal hâlâ aynı kareyse görseli yenile
+  if (activeIdx === i) {
+    const wrap = document.getElementById('modalImgWrap');
+    wrap.innerHTML = '';
+    if (frames[i].img) {
+      const img = document.createElement('img');
+      img.src = frames[i].img; img.alt = frames[i].title;
+      wrap.appendChild(img);
+    }
+  }
+  btn.innerHTML = orig;
+  btn.style.pointerEvents = 'auto';
 }
 
 function copyAll() {
