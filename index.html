@@ -214,6 +214,40 @@
   .generate-btn:active { transform: scale(0.97); }
   .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  /* REFERENCE UPLOAD */
+  .ref-upload {
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    overflow: hidden;
+  }
+  .ref-upload:hover { border-color: var(--accent); background: rgba(224,64,160,0.04); }
+
+  .ref-empty {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px; font-size: 12px; color: var(--text-muted);
+  }
+  .ref-icon { font-size: 16px; color: var(--accent); }
+
+  .ref-preview {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  }
+  .ref-preview img {
+    width: 64px; height: 36px; object-fit: cover;
+    border-radius: 4px; border: 0.5px solid var(--border);
+  }
+  .ref-preview-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .ref-preview-info span { font-size: 12px; color: var(--text-dim); }
+  .ref-remove {
+    margin-left: auto; background: rgba(248,113,113,0.12);
+    border: 0.5px solid rgba(248,113,113,0.25); color: #f87171;
+    font-size: 11px; padding: 4px 10px; border-radius: var(--radius);
+    cursor: pointer; font-family: var(--font);
+  }
+  .ref-remove:hover { background: rgba(248,113,113,0.2); }
+
   /* STATUS / PROGRESS */
   .status-bar {
     display: none; align-items: center; gap: 10px;
@@ -263,7 +297,7 @@
   .frame-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 
   .frame-visual {
-    width: 100%; aspect-ratio: 16/9;
+    width: 100%; aspect-ratio: var(--frame-ar, 16/9);
     background: linear-gradient(135deg, #0f0810 0%, #1a0d1f 100%);
     position: relative; overflow: hidden;
     display: flex; align-items: center; justify-content: center;
@@ -335,7 +369,7 @@
   .close-btn { width: 28px; height: 28px; background: var(--surface); border: 0.5px solid var(--border); border-radius: 6px; color: var(--text-dim); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; line-height: 1; }
   .close-btn:hover { background: var(--surface-hover); color: var(--text); }
 
-  .modal-img-wrap { width: 100%; aspect-ratio: 16/9; overflow: hidden; background: linear-gradient(135deg, #0f0810 0%, #1a0d1f 100%); display: flex; align-items: center; justify-content: center; }
+  .modal-img-wrap { width: 100%; aspect-ratio: var(--modal-ar, 16/9); overflow: hidden; background: linear-gradient(135deg, #0f0810 0%, #1a0d1f 100%); display: flex; align-items: center; justify-content: center; }
   .modal-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .modal-body { padding: 16px; }
@@ -435,18 +469,66 @@
             placeholder="Örn: Yağmurlu bir gecede dedektif, neon ışıklı sokakta yürüyor…" />
         </div>
       </div>
+
+      <div class="controls-row">
+        <div class="ctrl-group wide">
+          <label class="ctrl-label">Referans görsel (opsiyonel) — tarz/atmosfer için</label>
+          <div class="ref-upload" id="refUpload" onclick="document.getElementById('refInput').click()">
+            <input type="file" id="refInput" accept="image/*" style="display:none" onchange="handleRefUpload(event)" />
+            <div class="ref-empty" id="refEmpty">
+              <span class="ref-icon">＋</span>
+              <span>Referans görsel yükle</span>
+            </div>
+            <div class="ref-preview" id="refPreview" style="display:none;">
+              <img id="refPreviewImg" src="" alt="referans" />
+              <div class="ref-preview-info">
+                <span id="refFileName">görsel.png</span>
+                <button class="ref-remove" onclick="event.stopPropagation();removeRef()">✕ Kaldır</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="controls-row">
         <div class="ctrl-group">
           <label class="ctrl-label">Görsel stil</label>
           <select id="stylePreset" class="ctrl-input">
-            <option value="cinematic film still, anamorphic lens, dramatic lighting, ultra wide 16:9">Sinematik</option>
-            <option value="anime storyboard, studio ghibli style, detailed, wide 16:9">Anime</option>
-            <option value="noir film, black and white, high contrast shadows, wide 16:9">Noir</option>
-            <option value="comic book panel, graphic novel style, bold linework, wide 16:9">Çizgi roman</option>
-            <option value="documentary photography, natural light, candid, wide 16:9">Belgesel</option>
-            <option value="watercolor illustration, loose brushwork, muted palette, wide 16:9">Suluboya</option>
-            <option value="cyberpunk, neon lights, rain reflections, dystopian city, wide 16:9">Cyberpunk</option>
-            <option value="horror film, dark atmosphere, unsettling composition, wide 16:9">Korku</option>
+            <option value="">Seçili değil</option>
+            <option value="cinematic film still, anamorphic lens, dramatic lighting">Sinematik</option>
+            <option value="anime storyboard, studio ghibli style, detailed cel shading">Anime</option>
+            <option value="noir film, black and white, high contrast shadows">Noir</option>
+            <option value="comic book panel, graphic novel style, bold linework">Çizgi roman</option>
+            <option value="documentary photography, natural light, candid">Belgesel</option>
+            <option value="watercolor illustration, loose brushwork, muted palette">Suluboya</option>
+            <option value="cyberpunk, neon lights, rain reflections, dystopian city">Cyberpunk</option>
+            <option value="horror film, dark atmosphere, unsettling composition">Korku</option>
+            <option value="oil painting, classical, rich textures">Yağlı boya</option>
+            <option value="3D render, octane, cinematic lighting, detailed">3D Render</option>
+            <option value="pixel art, retro 16-bit game style">Pixel Art</option>
+            <option value="flat vector illustration, minimal, clean shapes">Vektörel</option>
+            <option value="vintage film photograph, grain, faded colors, retro">Vintage</option>
+            <option value="hyperrealistic, ultra detailed, sharp focus, 8k">Hiperrealist</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">En boy oranı</label>
+          <select id="aspectRatio" class="ctrl-input">
+            <option value="16:9" data-w="1536" data-h="864" selected>16:9 — Sinematik geniş</option>
+            <option value="9:16" data-w="864" data-h="1536">9:16 — Dikey (story/reels)</option>
+            <option value="1:1" data-w="1024" data-h="1024">1:1 — Kare</option>
+            <option value="4:3" data-w="1280" data-h="960">4:3 — Klasik TV</option>
+            <option value="3:4" data-w="960" data-h="1280">3:4 — Dikey klasik</option>
+            <option value="3:2" data-w="1296" data-h="864">3:2 — Fotoğraf yatay</option>
+            <option value="2:3" data-w="864" data-h="1296">2:3 — Fotoğraf dikey</option>
+            <option value="21:9" data-w="1680" data-h="720">21:9 — Ultra geniş</option>
+            <option value="5:4" data-w="1200" data-h="960">5:4 — Orta format</option>
+            <option value="4:5" data-w="960" data-h="1200">4:5 — Instagram dikey</option>
+            <option value="2:1" data-w="1536" data-h="768">2:1 — Panorama</option>
+            <option value="1:2" data-w="768" data-h="1536">1:2 — Uzun dikey</option>
+            <option value="5:7" data-w="900" data-h="1260">5:7 — Poster dikey</option>
+            <option value="7:5" data-w="1260" data-h="900">7:5 — Poster yatay</option>
+            <option value="2.39:1" data-w="1720" data-h="720">2.39:1 — Anamorfik sinema</option>
           </select>
         </div>
         <div class="ctrl-group">
@@ -550,11 +632,36 @@ let frames = [];
 let activeIdx = null;
 let doneCount = 0;
 let apiKey = localStorage.getItem('frameai_openai_key') || '';
+let refImageBase64 = null; // referans görsel (base64)
+let refImageBlob = null;   // referans görsel (blob, edit endpoint için)
 
 // Init key display
 if (apiKey) {
   document.getElementById('apiKeyInput').value = apiKey;
   showKeyStatus(true);
+}
+
+function handleRefUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  refImageBlob = file;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    refImageBase64 = ev.target.result;
+    document.getElementById('refPreviewImg').src = refImageBase64;
+    document.getElementById('refFileName').textContent = file.name;
+    document.getElementById('refEmpty').style.display = 'none';
+    document.getElementById('refPreview').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeRef() {
+  refImageBase64 = null;
+  refImageBlob = null;
+  document.getElementById('refInput').value = '';
+  document.getElementById('refEmpty').style.display = 'flex';
+  document.getElementById('refPreview').style.display = 'none';
 }
 
 function saveKey() {
@@ -599,6 +706,8 @@ async function generate() {
   const mainPrompt = document.getElementById('mainPrompt').value.trim();
   const count  = parseInt(document.getElementById('frameCount').value);
   const style  = document.getElementById('stylePreset').value;
+  const arSel  = document.getElementById('aspectRatio');
+  const aspectRatio = arSel.value;
   const btn    = document.getElementById('generateBtn');
 
   if (!mainPrompt) { document.getElementById('mainPrompt').focus(); return; }
@@ -610,29 +719,42 @@ async function generate() {
   setProgress(0, 0);
   setStatus('Sahne prompt\'ları oluşturuluyor…', true);
 
+  const styleText = style ? `Stil: ${style}` : 'Stil: serbest, senaryoya en uygun görsel dili seç';
+  const stylePromptPart = style ? `${style}, ` : '';
+  const refNote = refImageBase64
+    ? '\nKullanıcı bir referans görsel yükledi. Bu referans görselin tarzını, renk paletini, atmosferini ve genel estetiğini analiz et ve her karenin promptuna bu tarzı yansıt.'
+    : '';
+
   try {
-    // GPT-4o ile prompt üretimi
+    const userContent = [{
+      type: 'text',
+      text: `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
+Aşağıdaki senaryo için tam olarak ${count} kare üret.
+${styleText}
+En boy oranı: ${aspectRatio}
+Senaryo: ${mainPrompt}${refNote}
+
+Her kare için:
+- title: kısa sahne başlığı (Türkçe, max 4 kelime)
+- desc: sahne özeti (Türkçe, 1 cümle)
+- prompt: gpt-image için İngilizce görsel prompt — shot type, kamera açısı, ışık, atmosfer, ${stylePromptPart}dahil et. Her kare farklı kompozisyon olsun. "${aspectRatio} aspect ratio" ile bitir.
+
+SADECE JSON array döndür:
+[{"title":"...","desc":"...","prompt":"..."},...]`
+    }];
+
+    // Referans görsel varsa vision için ekle
+    if (refImageBase64) {
+      userContent.push({ type: 'image_url', image_url: { url: refImageBase64 } });
+    }
+
     const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: 'gpt-4o',
         max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
-Aşağıdaki senaryo için tam olarak ${count} kare üret.
-Stil: ${style}
-Senaryo: ${mainPrompt}
-
-Her kare için:
-- title: kısa sahne başlığı (Türkçe, max 4 kelime)
-- desc: sahne özeti (Türkçe, 1 cümle)
-- prompt: DALL-E 3 için İngilizce görsel prompt — shot type, kamera açısı, ışık, atmosfer, ${style} dahil et. Her kare farklı kompozisyon olsun. "wide shot, 16:9 aspect ratio" ile bitir.
-
-SADECE JSON array döndür:
-[{"title":"...","desc":"...","prompt":"..."},...]`
-        }]
+        messages: [{ role: 'user', content: userContent }]
       })
     });
 
@@ -649,10 +771,10 @@ SADECE JSON array döndür:
     setStatus('', false);
     setProgress(0, frames.length);
 
-    await generateImages();
+    await generateImages(arSel);
 
-    const styleName = document.getElementById('stylePreset').options[document.getElementById('stylePreset').selectedIndex].text;
-    document.getElementById('boardMeta').textContent = `${frames.length} kare · ${styleName} · tamamlandı`;
+    const styleName = style ? document.getElementById('stylePreset').options[document.getElementById('stylePreset').selectedIndex].text : 'Serbest';
+    document.getElementById('boardMeta').textContent = `${frames.length} kare · ${styleName} · ${aspectRatio} · tamamlandı`;
     setProgress(0, 0);
 
   } catch(e) {
@@ -662,31 +784,55 @@ SADECE JSON array döndür:
   btn.disabled = false;
 }
 
-async function generateImages() {
+async function generateImages(arSel) {
   const total = frames.length;
-  const CONCURRENCY = 2; // DALL-E rate limit için 2
+  const CONCURRENCY = 2;
   let idx = 0;
+
+  // gpt-image-1 sadece 3 boyut destekler: 1024x1024, 1536x1024 (yatay), 1024x1536 (dikey)
+  // Seçilen orana göre en yakını eşle
+  const w = parseInt(arSel.selectedOptions[0].dataset.w);
+  const h = parseInt(arSel.selectedOptions[0].dataset.h);
+  let imageSize;
+  if (Math.abs(w - h) < 60) imageSize = '1024x1024';      // kareye yakın
+  else if (w > h) imageSize = '1536x1024';                 // yatay
+  else imageSize = '1024x1536';                            // dikey
 
   async function next() {
     while (idx < total) {
       const i = idx++;
       updateFrameStatus(i, 'generating');
       try {
-        const res = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: 'gpt-image-1',
-            prompt: frames[i].prompt,
-            n: 1,
-            size: '1024x1024'
-          })
-        });
+        let res;
+        if (refImageBlob) {
+          // Referans görsel varsa edits endpoint kullan (tarz transferi)
+          const fd = new FormData();
+          fd.append('model', 'gpt-image-1');
+          fd.append('image', refImageBlob);
+          fd.append('prompt', frames[i].prompt);
+          fd.append('n', '1');
+          fd.append('size', imageSize);
+          res = await fetch('https://api.openai.com/v1/images/edits', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: fd
+          });
+        } else {
+          res = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: 'gpt-image-1',
+              prompt: frames[i].prompt,
+              n: 1,
+              size: imageSize
+            })
+          });
+        }
 
         const data = await res.json();
         if (data.error) throw new Error(data.error.message);
 
-        // gpt-image-1 b64_json döndürür
         const b64 = data.data[0].b64_json;
         const src = 'data:image/png;base64,' + b64;
         frames[i].img = src;
@@ -708,6 +854,10 @@ async function generateImages() {
 
 function renderBoard() {
   const cols = document.getElementById('colCount').value;
+  const arSel = document.getElementById('aspectRatio');
+  const w = parseInt(arSel.selectedOptions[0].dataset.w);
+  const h = parseInt(arSel.selectedOptions[0].dataset.h);
+  const arCss = `${w}/${h}`;
   const grid = document.getElementById('grid');
   grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   grid.innerHTML = '';
@@ -718,11 +868,11 @@ function renderBoard() {
     card.id = `card-${i}`;
     card.onclick = () => openModal(i);
     card.innerHTML = `
-      <div class="frame-visual" id="visual-${i}">
+      <div class="frame-visual" id="visual-${i}" style="--frame-ar:${arCss};">
         <div class="frame-num-badge">${String(i+1).padStart(2,'0')}</div>
         <div class="frame-loading" id="loading-${i}">
           <div class="frame-loading-spinner"></div>
-          <div class="frame-loading-text">DALL-E üretiyor…</div>
+          <div class="frame-loading-text">Üretiliyor…</div>
         </div>
         <div class="frame-done-overlay" id="overlay-${i}" style="display:none;">
           <button class="overlay-btn" onclick="event.stopPropagation();copyFramePrompt(${i})">⧉ Prompt</button>
@@ -770,6 +920,10 @@ function openModal(i) {
   document.getElementById('modalPrompt').textContent = f.prompt;
 
   const wrap = document.getElementById('modalImgWrap');
+  const arSel = document.getElementById('aspectRatio');
+  const w = parseInt(arSel.selectedOptions[0].dataset.w);
+  const h = parseInt(arSel.selectedOptions[0].dataset.h);
+  wrap.style.setProperty('--modal-ar', `${w}/${h}`);
   wrap.innerHTML = '';
   if (f.img) {
     const img = document.createElement('img');
