@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FrameAI — Storyboard Üreticisi</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.1);
+    --border-strong: rgba(255,255,255,0.18);
+    --text: #ffffff;
+    --text-muted: rgba(255,255,255,0.45);
+    --text-dim: rgba(255,255,255,0.65);
+    --accent: #e040a0;
+    --radius: 8px;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2.5rem; height: 60px;
+    background: rgba(10,10,15,0.8); backdrop-filter: blur(20px);
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 600; letter-spacing: -0.02em;
+    text-decoration: none; color: var(--text);
+  }
+
+  .nav-logo-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 13px;
+  }
+
+  .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
+  .nav-links a { font-size: 13px; color: var(--text-dim); text-decoration: none; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+
+  .btn-primary {
+    font-size: 13px; font-weight: 500; color: #fff;
+    background: var(--accent); border: none; cursor: pointer;
+    padding: 7px 16px; border-radius: var(--radius);
+    transition: opacity 0.2s; font-family: var(--font);
+    text-decoration: none; display: inline-block;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  /* HERO */
+  .hero {
+    position: relative; min-height: 100vh;
+    display: flex; align-items: center; overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 60% 40%, rgba(80,20,60,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 80% at 20% 80%, rgba(30,10,50,0.6) 0%, transparent 60%),
+      linear-gradient(160deg, #0f0810 0%, #0a0a0f 40%, #070512 100%);
+  }
+
+  .hero-scan {
+    position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  .hero-frames-deco {
+    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    width: 45%; display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 3px; opacity: 0.15; padding: 0 2rem;
+  }
+
+  .deco-frame { aspect-ratio: 16/9; border: 0.5px solid rgba(255,255,255,0.3); border-radius: 3px; background: rgba(255,255,255,0.03); }
+  .deco-frame:nth-child(5) { background: rgba(224,64,160,0.08); border-color: rgba(224,64,160,0.4); opacity: 1; }
+
+  .hero-content {
+    position: relative; z-index: 2; max-width: 1200px; margin: 0 auto;
+    padding: 0 2.5rem; padding-top: 60px; display: flex; flex-direction: column;
+  }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.06); border: 0.5px solid var(--border-strong);
+    border-radius: 100px; padding: 5px 14px 5px 8px;
+    font-size: 12px; color: var(--text-dim); margin-bottom: 2rem; width: fit-content;
+    backdrop-filter: blur(8px);
+  }
+
+  .hero-badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hero-title { font-size: clamp(2.8rem, 6vw, 5.5rem); font-weight: 800; line-height: 1.05; letter-spacing: -0.04em; max-width: 700px; margin-bottom: 1.5rem; }
+  .hero-title em { font-style: normal; color: var(--accent); }
+
+  .hero-sub { font-size: 16px; color: var(--text-dim); max-width: 480px; line-height: 1.65; margin-bottom: 2.5rem; }
+
+  .hero-actions { display: flex; align-items: center; gap: 14px; margin-bottom: 4rem; }
+
+  .btn-outline {
+    font-size: 13px; font-weight: 500; color: var(--text);
+    background: var(--surface); border: 0.5px solid var(--border-strong);
+    cursor: pointer; padding: 8px 18px; border-radius: var(--radius);
+    transition: background 0.2s; font-family: var(--font);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-outline:hover { background: var(--surface-hover); }
+
+  .hero-features { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .hero-feat { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); }
+  .hero-feat::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  /* TOOL */
+  #tool { background: var(--bg); padding: 5rem 0; border-top: 0.5px solid var(--border); }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 2.5rem; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
+  .section-title { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.75rem; }
+  .section-sub { font-size: 14px; color: var(--text-dim); max-width: 500px; line-height: 1.6; margin-bottom: 2rem; }
+
+  /* API KEY PANEL */
+  .key-panel {
+    background: rgba(224,64,160,0.06);
+    border: 0.5px solid rgba(224,64,160,0.25);
+    border-radius: 12px; padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+
+  .key-panel-icon { font-size: 18px; opacity: 0.7; flex-shrink: 0; }
+
+  .key-panel-text { flex: 1; min-width: 200px; }
+  .key-panel-text strong { font-size: 13px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .key-panel-text span { font-size: 11px; color: var(--text-muted); }
+
+  .key-input-wrap { display: flex; gap: 8px; flex: 2; min-width: 260px; }
+
+  .key-input {
+    flex: 1; height: 36px; padding: 0 12px;
+    background: rgba(0,0,0,0.3);
+    border: 0.5px solid rgba(224,64,160,0.3);
+    border-radius: var(--radius); color: var(--text);
+    font-size: 13px; font-family: 'Courier New', monospace;
+    outline: none; transition: border-color 0.2s;
+  }
+  .key-input:focus { border-color: var(--accent); }
+  .key-input::placeholder { color: var(--text-muted); font-family: var(--font); }
+
+  .key-save-btn {
+    height: 36px; padding: 0 14px;
+    background: rgba(224,64,160,0.2); border: 0.5px solid rgba(224,64,160,0.4);
+    border-radius: var(--radius); color: var(--accent);
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font);
+    white-space: nowrap; transition: background 0.15s;
+  }
+  .key-save-btn:hover { background: rgba(224,64,160,0.3); }
+
+  .key-status {
+    font-size: 11px; padding: 3px 10px; border-radius: 100px;
+    display: none;
+  }
+  .key-status.ok { display: inline-block; background: rgba(74,222,128,0.12); color: #4ade80; border: 0.5px solid rgba(74,222,128,0.25); }
+  .key-status.missing { display: inline-block; background: rgba(248,113,113,0.12); color: #f87171; border: 0.5px solid rgba(248,113,113,0.25); }
+
+  /* CONTROLS */
+  .controls-panel {
+    background: rgba(255,255,255,0.03); border: 0.5px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+
+  .controls-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 140px; }
+  .ctrl-group.wide { flex: 3; min-width: 260px; }
+  .ctrl-label { font-size: 11px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.02em; }
+
+  .ctrl-input {
+    height: 38px; padding: 0 12px;
+    background: rgba(255,255,255,0.05); border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius); color: var(--text);
+    font-size: 13px; font-family: var(--font);
+    transition: border-color 0.2s; outline: none; width: 100%;
+  }
+  .ctrl-input:focus { border-color: var(--accent); }
+  .ctrl-input::placeholder { color: var(--text-muted); }
+  option { background: #1a1a24; }
+
+  .generate-btn {
+    height: 38px; padding: 0 22px;
+    background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius); font-size: 13px; font-weight: 600;
+    font-family: var(--font); cursor: pointer;
+    display: flex; align-items: center; gap: 7px;
+    white-space: nowrap; transition: opacity 0.2s, transform 0.1s; flex-shrink: 0;
+  }
+  .generate-btn:hover { opacity: 0.85; }
+  .generate-btn:active { transform: scale(0.97); }
+  .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* STATUS / PROGRESS */
+  .status-bar {
+    display: none; align-items: center; gap: 10px;
+    padding: 10px 14px; background: rgba(255,255,255,0.03);
+    border: 0.5px solid var(--border); border-radius: var(--radius);
+    font-size: 12px; color: var(--text-dim); margin-bottom: 1rem;
+  }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0; display: none;
+  }
+
+  .progress-wrap {
+    display: none; background: rgba(255,255,255,0.04);
+    border: 0.5px solid var(--border); border-radius: var(--radius);
+    padding: 12px 14px; margin-bottom: 1rem;
+  }
+
+  .progress-top { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+  .progress-track { height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 1px; transition: width 0.4s ease; width: 0%; }
+
+  /* BOARD */
+  #board { display: none; }
+  .board-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+  .board-meta { font-size: 12px; color: var(--text-muted); }
+  .board-actions { display: flex; gap: 8px; }
+
+  .icon-btn {
+    height: 32px; padding: 0 12px; background: var(--surface);
+    border: 0.5px solid var(--border); border-radius: var(--radius);
+    color: var(--text-dim); font-size: 12px; font-family: var(--font); cursor: pointer;
+    display: flex; align-items: center; gap: 5px; transition: background 0.15s, color 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+
+  .frame-grid { display: grid; gap: 8px; }
+
+  .frame-card {
+    background: rgba(255,255,255,0.03); border: 0.5px solid var(--border);
+    border-radius: 8px; overflow: hidden; cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s; position: relative;
+  }
+  .frame-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+
+  .frame-visual {
+    width: 100%; aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #0f0810 0%, #1a0d1f 100%);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .frame-visual img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; z-index: 1; }
+
+  .frame-visual::before {
+    content: ''; position: absolute; inset: 0; z-index: 2;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px);
+    pointer-events: none;
+  }
+
+  .frame-num-badge {
+    position: absolute; top: 7px; left: 7px; z-index: 3;
+    font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.6);
+    border: 0.5px solid rgba(255,255,255,0.15);
+    border-radius: 4px; padding: 2px 6px; font-family: 'Courier New', monospace;
+  }
+
+  .frame-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 1; }
+  .frame-loading-spinner { width: 20px; height: 20px; border: 1.5px solid rgba(255,255,255,0.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .frame-loading-text { font-size: 10px; color: var(--text-muted); }
+
+  .frame-done-overlay {
+    position: absolute; inset: 0; z-index: 4;
+    background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .frame-card:hover .frame-done-overlay { opacity: 1; }
+
+  .overlay-btn {
+    height: 28px; padding: 0 12px;
+    background: rgba(255,255,255,0.12); border: 0.5px solid rgba(255,255,255,0.2);
+    border-radius: 5px; color: #fff; font-size: 11px; font-weight: 500;
+    cursor: pointer; font-family: var(--font); transition: background 0.15s;
+  }
+  .overlay-btn:hover { background: rgba(255,255,255,0.22); }
+
+  .frame-info { padding: 8px 10px; display: flex; align-items: center; gap: 8px; border-top: 0.5px solid var(--border); }
+  .frame-seq { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-muted); font-family: 'Courier New', monospace; min-width: 22px; }
+  .frame-title { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+
+  .frame-status-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0; transition: background 0.3s; }
+  .frame-status-dot.generating { background: var(--accent); animation: pulse 1s infinite; }
+  .frame-status-dot.done { background: #4ade80; animation: none; }
+  .frame-status-dot.error { background: #f87171; animation: none; }
+
+  /* MODAL */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(16px);
+    z-index: 200; align-items: center; justify-content: center; padding: 1.5rem;
+  }
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    background: #12111a; border: 0.5px solid var(--border-strong);
+    border-radius: 14px; width: 100%; max-width: 660px; overflow: hidden;
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .modal-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 0.5px solid var(--border); }
+  .modal-top-left { display: flex; align-items: center; gap: 10px; }
+  .modal-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; font-family: 'Courier New', monospace; color: var(--accent); background: rgba(224,64,160,0.12); border: 0.5px solid rgba(224,64,160,0.25); border-radius: 4px; padding: 2px 7px; }
+  .modal-heading { font-size: 14px; font-weight: 600; }
+  .close-btn { width: 28px; height: 28px; background: var(--surface); border: 0.5px solid var(--border); border-radius: 6px; color: var(--text-dim); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; line-height: 1; }
+  .close-btn:hover { background: var(--surface-hover); color: var(--text); }
+
+  .modal-img-wrap { width: 100%; aspect-ratio: 16/9; overflow: hidden; background: linear-gradient(135deg, #0f0810 0%, #1a0d1f 100%); display: flex; align-items: center; justify-content: center; }
+  .modal-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .modal-body { padding: 16px; }
+  .modal-desc { font-size: 13px; color: var(--text-dim); line-height: 1.65; margin-bottom: 14px; }
+  .prompt-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+  .prompt-box { background: rgba(0,0,0,0.4); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 11.5px; font-family: 'Courier New', monospace; color: var(--text-dim); line-height: 1.6; word-break: break-word; margin-bottom: 14px; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+
+  .copy-btn { height: 32px; padding: 0 14px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); color: var(--text-dim); font-size: 12px; font-weight: 500; cursor: pointer; font-family: var(--font); display: flex; align-items: center; gap: 5px; transition: background 0.15s, color 0.15s; }
+  .copy-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .copy-btn.accent { background: rgba(224,64,160,0.15); border-color: rgba(224,64,160,0.3); color: var(--accent); }
+  .copy-btn.accent:hover { background: rgba(224,64,160,0.25); }
+
+  /* FEATURES */
+  .features { padding: 5rem 0; border-top: 0.5px solid var(--border); }
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .feat-cell { padding: 1.75rem 1.5rem; background: rgba(255,255,255,0.02); transition: background 0.2s; }
+  .feat-cell:hover { background: rgba(255,255,255,0.04); }
+  .feat-icon { font-size: 20px; margin-bottom: 1rem; opacity: 0.7; }
+  .feat-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .feat-desc { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+  footer { border-top: 0.5px solid var(--border); padding: 1.5rem 2.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+  .footer-brand { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .footer-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .footer-note { font-size: 11px; color: var(--text-muted); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">▶</div>
+    FrameAI
+  </a>
+  <ul class="nav-links">
+    <li><a href="#tool">Araç</a></li>
+    <li><a href="#features">Özellikler</a></li>
+  </ul>
+  <a href="#tool" class="btn-primary">Başla</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-scan" style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);"></div>
+  <div class="hero-frames-deco">
+    <div class="deco-frame"></div><div class="deco-frame"></div><div class="deco-frame"></div>
+    <div class="deco-frame"></div><div class="deco-frame"></div><div class="deco-frame"></div>
+    <div class="deco-frame"></div><div class="deco-frame"></div><div class="deco-frame"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge"><div class="hero-badge-dot"></div>DALL-E 3 · OpenAI görsel üretimi</div>
+    <h1 class="hero-title">Sahneni <em>çerçeve</em><br>çerçeve anlat</h1>
+    <p class="hero-sub">Senaryo yaz, DALL-E 3 her kare için gerçek görsel üretsin. 16:9 formatta, 20 kareye kadar.</p>
+    <div class="hero-actions">
+      <a href="#tool" class="btn-primary" style="padding:10px 22px;font-size:14px;">▶ Üretmeye başla</a>
+      <button class="btn-outline">Nasıl çalışır?</button>
+    </div>
+    <div class="hero-features">
+      <span class="hero-feat">16:9 sinematik format</span>
+      <span class="hero-feat">Maksimum 20 kare</span>
+      <span class="hero-feat">DALL-E 3 kalitesi</span>
+      <span class="hero-feat">Key sadece sende kalır</span>
+    </div>
+  </div>
+</section>
+
+<section id="tool">
+  <div class="container">
+    <div class="section-label">Araç</div>
+    <h2 class="section-title">Storyboard üreticisi</h2>
+    <p class="section-sub">OpenAI API key'ini gir, sahne açıklamanı yaz. Key sadece tarayıcında tutulur, hiçbir yere gönderilmez.</p>
+
+    <!-- API KEY PANEL -->
+    <div class="key-panel">
+      <div class="key-panel-icon">🔑</div>
+      <div class="key-panel-text">
+        <strong>OpenAI API Key</strong>
+        <span>Sadece tarayıcında saklanır · Sunucuya gönderilmez</span>
+      </div>
+      <div class="key-input-wrap">
+        <input id="apiKeyInput" class="key-input" type="password" placeholder="sk-..." autocomplete="off" />
+        <button class="key-save-btn" onclick="saveKey()">Kaydet</button>
+        <span class="key-status" id="keyStatus"></span>
+      </div>
+    </div>
+
+    <div class="controls-panel">
+      <div class="controls-row">
+        <div class="ctrl-group wide">
+          <label class="ctrl-label">Senaryo / sahne açıklaması</label>
+          <input id="mainPrompt" class="ctrl-input" type="text"
+            placeholder="Örn: Yağmurlu bir gecede dedektif, neon ışıklı sokakta yürüyor…" />
+        </div>
+      </div>
+      <div class="controls-row">
+        <div class="ctrl-group">
+          <label class="ctrl-label">Görsel stil</label>
+          <select id="stylePreset" class="ctrl-input">
+            <option value="cinematic film still, anamorphic lens, dramatic lighting, ultra wide 16:9">Sinematik</option>
+            <option value="anime storyboard, studio ghibli style, detailed, wide 16:9">Anime</option>
+            <option value="noir film, black and white, high contrast shadows, wide 16:9">Noir</option>
+            <option value="comic book panel, graphic novel style, bold linework, wide 16:9">Çizgi roman</option>
+            <option value="documentary photography, natural light, candid, wide 16:9">Belgesel</option>
+            <option value="watercolor illustration, loose brushwork, muted palette, wide 16:9">Suluboya</option>
+            <option value="cyberpunk, neon lights, rain reflections, dystopian city, wide 16:9">Cyberpunk</option>
+            <option value="horror film, dark atmosphere, unsettling composition, wide 16:9">Korku</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Kare sayısı</label>
+          <select id="frameCount" class="ctrl-input">
+            <option value="4">4 kare</option>
+            <option value="6">6 kare</option>
+            <option value="8">8 kare</option>
+            <option value="10" selected>10 kare</option>
+            <option value="12">12 kare</option>
+            <option value="16">16 kare</option>
+            <option value="20">20 kare</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Grid düzeni</label>
+          <select id="colCount" class="ctrl-input">
+            <option value="2">2 sütun</option>
+            <option value="3">3 sütun</option>
+            <option value="4" selected>4 sütun</option>
+            <option value="5">5 sütun</option>
+          </select>
+        </div>
+        <button class="generate-btn" id="generateBtn" onclick="generate()">
+          <span>▶</span> Üret
+        </button>
+      </div>
+    </div>
+
+    <div class="status-bar" id="statusBar">
+      <div class="spinner" id="spinner"></div>
+      <span id="statusText"></span>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-top">
+        <span>Görseller üretiliyor…</span>
+        <span id="progressCount">0 / 0</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <div id="board">
+      <div class="board-header">
+        <div class="board-meta" id="boardMeta"></div>
+        <div class="board-actions">
+          <button class="icon-btn" onclick="copyAll()">⧉ Tüm prompt'ları kopyala</button>
+        </div>
+      </div>
+      <div class="frame-grid" id="grid"></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-label">Özellikler</div>
+    <h2 class="section-title" style="margin-bottom:2rem;">Neden FrameAI?</h2>
+    <div class="features-grid">
+      <div class="feat-cell"><div class="feat-icon">◈</div><div class="feat-title">DALL-E 3 kalitesi</div><div class="feat-desc">Her kare için gerçek DALL-E 3 görseli üretilir. Prompt kopyalamana gerek yok.</div></div>
+      <div class="feat-cell"><div class="feat-icon">🔒</div><div class="feat-title">Güvenli</div><div class="feat-desc">API key sadece tarayıcında localStorage'da saklanır. Hiçbir sunucuya gönderilmez.</div></div>
+      <div class="feat-cell"><div class="feat-icon">◻</div><div class="feat-title">20 kareye kadar</div><div class="feat-desc">Kısa filmden uzun metrajlı senaryoya, ihtiyacın kadar kare üret.</div></div>
+      <div class="feat-cell"><div class="feat-icon">⚡</div><div class="feat-title">Paralel üretim</div><div class="feat-desc">Kareler aynı anda üretilir, beklemeni minimuma indirir.</div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-brand"><div class="footer-dot"></div>FrameAI</div>
+  <div class="footer-note">OpenAI DALL-E 3 ile güçlendirildi · Key sadece sende kalır</div>
+</footer>
+
+<div class="modal-backdrop" id="modalBg" onclick="handleModalClick(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-top">
+      <div class="modal-top-left">
+        <span class="modal-badge" id="modalNum"></span>
+        <span class="modal-heading" id="modalHeading"></span>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-img-wrap" id="modalImgWrap">
+      <div style="opacity:0.3;font-size:40px;">◻</div>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc" id="modalDesc"></p>
+      <div class="prompt-label">Görsel prompt</div>
+      <div class="prompt-box" id="modalPrompt"></div>
+      <div class="modal-footer">
+        <button class="copy-btn" onclick="downloadFrame()">↓ İndir (.txt)</button>
+        <button class="copy-btn accent" onclick="copyModalPrompt()">⧉ Prompt kopyala</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let frames = [];
+let activeIdx = null;
+let doneCount = 0;
+let apiKey = localStorage.getItem('frameai_openai_key') || '';
+
+// Init key display
+if (apiKey) {
+  document.getElementById('apiKeyInput').value = apiKey;
+  showKeyStatus(true);
+}
+
+function saveKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val.startsWith('sk-')) {
+    showKeyStatus(false);
+    return;
+  }
+  apiKey = val;
+  localStorage.setItem('frameai_openai_key', val);
+  showKeyStatus(true);
+}
+
+function showKeyStatus(ok) {
+  const el = document.getElementById('keyStatus');
+  el.className = 'key-status ' + (ok ? 'ok' : 'missing');
+  el.textContent = ok ? '✓ Hazır' : '✗ Geçersiz';
+}
+
+function setStatus(msg, loading = true) {
+  const bar = document.getElementById('statusBar');
+  const sp  = document.getElementById('spinner');
+  bar.style.display = msg ? 'flex' : 'none';
+  document.getElementById('statusText').textContent = msg;
+  sp.style.display = loading ? 'block' : 'none';
+}
+
+function setProgress(done, total) {
+  const wrap = document.getElementById('progressWrap');
+  wrap.style.display = total > 0 ? 'block' : 'none';
+  document.getElementById('progressCount').textContent = `${done} / ${total}`;
+  document.getElementById('progressFill').style.width = total > 0 ? `${Math.round((done/total)*100)}%` : '0%';
+}
+
+async function generate() {
+  if (!apiKey || !apiKey.startsWith('sk-')) {
+    setStatus('Önce OpenAI API key\'ini gir ve kaydet.', false);
+    document.getElementById('apiKeyInput').focus();
+    return;
+  }
+
+  const mainPrompt = document.getElementById('mainPrompt').value.trim();
+  const count  = parseInt(document.getElementById('frameCount').value);
+  const style  = document.getElementById('stylePreset').value;
+  const btn    = document.getElementById('generateBtn');
+
+  if (!mainPrompt) { document.getElementById('mainPrompt').focus(); return; }
+
+  btn.disabled = true;
+  frames = [];
+  doneCount = 0;
+  document.getElementById('board').style.display = 'none';
+  setProgress(0, 0);
+  setStatus('Sahne prompt\'ları oluşturuluyor…', true);
+
+  try {
+    // GPT-4o ile prompt üretimi
+    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
+Aşağıdaki senaryo için tam olarak ${count} kare üret.
+Stil: ${style}
+Senaryo: ${mainPrompt}
+
+Her kare için:
+- title: kısa sahne başlığı (Türkçe, max 4 kelime)
+- desc: sahne özeti (Türkçe, 1 cümle)
+- prompt: DALL-E 3 için İngilizce görsel prompt — shot type, kamera açısı, ışık, atmosfer, ${style} dahil et. Her kare farklı kompozisyon olsun. "wide shot, 16:9 aspect ratio" ile bitir.
+
+SADECE JSON array döndür:
+[{"title":"...","desc":"...","prompt":"..."},...]`
+        }]
+      })
+    });
+
+    const chatData = await chatRes.json();
+    if (chatData.error) throw new Error(chatData.error.message);
+
+    const raw = chatData.choices[0].message.content;
+    const clean = raw.replace(/```json|```/g, '').trim();
+    frames = JSON.parse(clean).slice(0, count).map(f => ({ ...f, img: null, status: 'pending' }));
+
+    renderBoard();
+    document.getElementById('board').style.display = 'block';
+    document.getElementById('boardMeta').textContent = `${frames.length} kare · görseller üretiliyor…`;
+    setStatus('', false);
+    setProgress(0, frames.length);
+
+    await generateImages();
+
+    const styleName = document.getElementById('stylePreset').options[document.getElementById('stylePreset').selectedIndex].text;
+    document.getElementById('boardMeta').textContent = `${frames.length} kare · ${styleName} · tamamlandı`;
+    setProgress(0, 0);
+
+  } catch(e) {
+    setStatus('Hata: ' + e.message, false);
+  }
+
+  btn.disabled = false;
+}
+
+async function generateImages() {
+  const total = frames.length;
+  const CONCURRENCY = 2; // DALL-E rate limit için 2
+  let idx = 0;
+
+  async function next() {
+    while (idx < total) {
+      const i = idx++;
+      updateFrameStatus(i, 'generating');
+      try {
+        const res = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'dall-e-2',
+            prompt: frames[i].prompt,
+            n: 1,
+            size: '1024x1024'
+          })
+        });
+
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message);
+
+        const imgUrl = data.data[0].url;
+        // Blob'a çevir → CORS sorunu olmaz
+        const imgRes = await fetch(imgUrl);
+        const blob = await imgRes.blob();
+        const src = URL.createObjectURL(blob);
+        frames[i].img = src;
+        frames[i].status = 'done';
+        updateFrameImage(i, src);
+      } catch(e) {
+        frames[i].status = 'error';
+        updateFrameStatus(i, 'error');
+        console.error('Frame', i, e);
+      }
+      doneCount++;
+      setProgress(doneCount, total);
+    }
+  }
+
+  const workers = Array.from({ length: CONCURRENCY }, next);
+  await Promise.all(workers);
+}
+
+function renderBoard() {
+  const cols = document.getElementById('colCount').value;
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.innerHTML = '';
+
+  frames.forEach((f, i) => {
+    const card = document.createElement('div');
+    card.className = 'frame-card';
+    card.id = `card-${i}`;
+    card.onclick = () => openModal(i);
+    card.innerHTML = `
+      <div class="frame-visual" id="visual-${i}">
+        <div class="frame-num-badge">${String(i+1).padStart(2,'0')}</div>
+        <div class="frame-loading" id="loading-${i}">
+          <div class="frame-loading-spinner"></div>
+          <div class="frame-loading-text">DALL-E üretiyor…</div>
+        </div>
+        <div class="frame-done-overlay" id="overlay-${i}" style="display:none;">
+          <button class="overlay-btn" onclick="event.stopPropagation();copyFramePrompt(${i})">⧉ Prompt</button>
+          <button class="overlay-btn" onclick="event.stopPropagation();openModal(${i})">↗ Detay</button>
+        </div>
+      </div>
+      <div class="frame-info">
+        <span class="frame-seq">${String(i+1).padStart(2,'0')}</span>
+        <span class="frame-title">${f.title}</span>
+        <span class="frame-status-dot generating" id="dot-${i}"></span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function updateFrameStatus(i, status) {
+  const dot = document.getElementById(`dot-${i}`);
+  if (dot) dot.className = `frame-status-dot ${status}`;
+  const loading = document.getElementById(`loading-${i}`);
+  if (loading && status !== 'generating') loading.style.display = 'none';
+}
+
+function updateFrameImage(i, src) {
+  const visual = document.getElementById(`visual-${i}`);
+  const loading = document.getElementById(`loading-${i}`);
+  const overlay = document.getElementById(`overlay-${i}`);
+  if (!visual) return;
+  if (loading) loading.style.display = 'none';
+
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = frames[i].title;
+  visual.appendChild(img);
+  if (overlay) overlay.style.display = 'flex';
+  updateFrameStatus(i, 'done');
+}
+
+function openModal(i) {
+  activeIdx = i;
+  const f = frames[i];
+  document.getElementById('modalNum').textContent = `KARE ${String(i+1).padStart(2,'0')}`;
+  document.getElementById('modalHeading').textContent = f.title;
+  document.getElementById('modalDesc').textContent = f.desc;
+  document.getElementById('modalPrompt').textContent = f.prompt;
+
+  const wrap = document.getElementById('modalImgWrap');
+  wrap.innerHTML = '';
+  if (f.img) {
+    const img = document.createElement('img');
+    img.src = f.img; img.alt = f.title;
+    wrap.appendChild(img);
+  } else {
+    wrap.innerHTML = '<div style="opacity:0.3;font-size:40px;">◻</div>';
+  }
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
+function handleModalClick(e) { if (e.target === document.getElementById('modalBg')) closeModal(); }
+
+function copyModalPrompt() {
+  if (activeIdx === null) return;
+  navigator.clipboard.writeText(frames[activeIdx].prompt).then(() => {
+    const btn = document.querySelector('.copy-btn.accent');
+    const orig = btn.innerHTML;
+    btn.textContent = '✓ Kopyalandı';
+    setTimeout(() => btn.innerHTML = orig, 1800);
+  });
+}
+
+function copyFramePrompt(i) { navigator.clipboard.writeText(frames[i].prompt); }
+
+function downloadFrame() {
+  if (activeIdx === null) return;
+  const f = frames[activeIdx];
+  const txt = `KARE ${String(activeIdx+1).padStart(2,'0')}: ${f.title}\n\n${f.desc}\n\nPROMPT:\n${f.prompt}`;
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `kare-${String(activeIdx+1).padStart(2,'0')}.txt`; a.click();
+}
+
+function copyAll() {
+  const all = frames.map((f,i) =>
+    `KARE ${String(i+1).padStart(2,'0')}: ${f.title}\n${f.desc}\n\nPROMPT:\n${f.prompt}`
+  ).join('\n\n' + '─'.repeat(60) + '\n\n');
+  navigator.clipboard.writeText(all).then(() => {
+    const btn = document.querySelector('.icon-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Kopyalandı';
+    setTimeout(() => btn.textContent = orig, 1800);
+  });
+}
+</script>
+</body>
+</html>
