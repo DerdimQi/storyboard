@@ -467,7 +467,7 @@
         <span>Ücretsiz · Kredi kartı yok · Sadece tarayıcında saklanır</span>
       </div>
       <div class="key-input-wrap">
-        <input id="apiKeyInput" class="key-input" type="password" placeholder="AIza..." autocomplete="off" />
+        <input id="apiKeyInput" class="key-input" type="password" placeholder="API key (AIza... veya AQ...)" autocomplete="off" />
         <button class="key-save-btn" onclick="saveKey()">Kaydet</button>
         <span class="key-status" id="keyStatus"></span>
       </div>
@@ -808,7 +808,7 @@ function getStyleLabel() {
 
 function saveKey() {
   const val = document.getElementById('apiKeyInput').value.trim();
-  if (!val.startsWith('AIza')) {
+  if (val.length < 20) {
     showKeyStatus(false);
     return;
   }
@@ -839,7 +839,7 @@ function setProgress(done, total) {
 }
 
 async function generate() {
-  if (!apiKey || !apiKey.startsWith('AIza')) {
+  if (!apiKey || apiKey.length < 20) {
     setStatus('Önce Google AI Studio API key\'ini gir ve kaydet.', false);
     document.getElementById('apiKeyInput').focus();
     return;
