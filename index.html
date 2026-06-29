@@ -437,7 +437,7 @@
     <div class="deco-frame"></div><div class="deco-frame"></div><div class="deco-frame"></div>
   </div>
   <div class="hero-content">
-    <div class="hero-badge"><div class="hero-badge-dot"></div>DALL-E 3 · OpenAI görsel üretimi</div>
+    <div class="hero-badge"><div class="hero-badge-dot"></div>Gemini · Ücretsiz görsel üretimi</div>
     <h1 class="hero-title">Sahneni <em>çerçeve</em><br>çerçeve anlat</h1>
     <p class="hero-sub">Senaryo yaz, DALL-E 3 her kare için gerçek görsel üretsin. 16:9 formatta, 20 kareye kadar.</p>
     <div class="hero-actions">
@@ -447,7 +447,7 @@
     <div class="hero-features">
       <span class="hero-feat">16:9 sinematik format</span>
       <span class="hero-feat">Maksimum 20 kare</span>
-      <span class="hero-feat">DALL-E 3 kalitesi</span>
+      <span class="hero-feat">Gemini kalitesi</span>
       <span class="hero-feat">Key sadece sende kalır</span>
     </div>
   </div>
@@ -457,17 +457,17 @@
   <div class="container">
     <div class="section-label">Araç</div>
     <h2 class="section-title">Storyboard üreticisi</h2>
-    <p class="section-sub">OpenAI API key'ini gir, sahne açıklamanı yaz. Key sadece tarayıcında tutulur, hiçbir yere gönderilmez.</p>
+    <p class="section-sub">Google AI Studio API key'ini gir, sahne açıklamanı yaz. Key sadece tarayıcında tutulur, hiçbir yere gönderilmez. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">Bedava key al →</a></p>
 
     <!-- API KEY PANEL -->
     <div class="key-panel">
       <div class="key-panel-icon">🔑</div>
       <div class="key-panel-text">
-        <strong>OpenAI API Key</strong>
-        <span>Sadece tarayıcında saklanır · Sunucuya gönderilmez</span>
+        <strong>Google AI Studio API Key</strong>
+        <span>Ücretsiz · Kredi kartı yok · Sadece tarayıcında saklanır</span>
       </div>
       <div class="key-input-wrap">
-        <input id="apiKeyInput" class="key-input" type="password" placeholder="sk-..." autocomplete="off" />
+        <input id="apiKeyInput" class="key-input" type="password" placeholder="AIza..." autocomplete="off" />
         <button class="key-save-btn" onclick="saveKey()">Kaydet</button>
         <span class="key-status" id="keyStatus"></span>
       </div>
@@ -612,7 +612,7 @@
     <div class="section-label">Özellikler</div>
     <h2 class="section-title" style="margin-bottom:2rem;">Neden FrameAI?</h2>
     <div class="features-grid">
-      <div class="feat-cell"><div class="feat-icon">◈</div><div class="feat-title">DALL-E 3 kalitesi</div><div class="feat-desc">Her kare için gerçek DALL-E 3 görseli üretilir. Prompt kopyalamana gerek yok.</div></div>
+      <div class="feat-cell"><div class="feat-icon">◈</div><div class="feat-title">Gemini kalitesi</div><div class="feat-desc">Her kare için gerçek Gemini görseli üretilir. Prompt kopyalamana gerek yok.</div></div>
       <div class="feat-cell"><div class="feat-icon">🔒</div><div class="feat-title">Güvenli</div><div class="feat-desc">API key sadece tarayıcında localStorage'da saklanır. Hiçbir sunucuya gönderilmez.</div></div>
       <div class="feat-cell"><div class="feat-icon">◻</div><div class="feat-title">20 kareye kadar</div><div class="feat-desc">Kısa filmden uzun metrajlı senaryoya, ihtiyacın kadar kare üret.</div></div>
       <div class="feat-cell"><div class="feat-icon">⚡</div><div class="feat-title">Paralel üretim</div><div class="feat-desc">Kareler aynı anda üretilir, beklemeni minimuma indirir.</div></div>
@@ -622,7 +622,7 @@
 
 <footer>
   <div class="footer-brand"><div class="footer-dot"></div>FrameAI</div>
-  <div class="footer-note">OpenAI DALL-E 3 ile güçlendirildi · Key sadece sende kalır</div>
+  <div class="footer-note">Google Gemini ile güçlendirildi · Key sadece sende kalır</div>
 </footer>
 
 <div class="modal-backdrop" id="modalBg" onclick="handleModalClick(event)">
@@ -654,7 +654,7 @@
 let frames = [];
 let activeIdx = null;
 let doneCount = 0;
-let apiKey = localStorage.getItem('frameai_openai_key') || '';
+let apiKey = localStorage.getItem('frameai_gemini_key') || '';
 let refImageBase64 = null; // referans görsel (base64)
 let refImageBlob = null;   // referans görsel (blob, edit endpoint için)
 let refStyleDescription = null; // referansın analiz edilmiş tarz tanımı (İngilizce)
@@ -710,34 +710,68 @@ function lockStyleSelector(locked) {
   }
 }
 
-// Referans görselin tarzını kelimelere döker (tek seferlik vision çağrısı)
-async function analyzeRefStyle() {
-  setStatus('Referans görselin tarzı analiz ediliyor…', true);
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      max_tokens: 400,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Analyze ONLY the visual STYLE of this reference image — not its content or subject.
-Describe the artistic rendering technique in precise English keywords that can be appended to image generation prompts.
-Focus on: medium (e.g. pencil sketch, oil painting, 3D render), color treatment (e.g. grayscale, monochrome, muted pastel), line quality, shading method (e.g. soft cross-hatching, cel shading), texture, level of detail, and overall mood.
-Return ONLY a single comma-separated list of style descriptors in English. No sentences, no explanation, no mention of what objects are in the image. Example output: "graphite pencil sketch, grayscale, soft shading, realistic proportions, fine cross-hatching, muted tones, hand-drawn texture"`
-          },
-          { type: 'image_url', image_url: { url: refImageBase64 } }
-        ]
-      }]
-    })
-  });
+// ── GEMINI YARDIMCI FONKSİYONLARI ──
+const GEMINI_TEXT_MODEL = 'gemini-2.5-flash';
+const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+
+// Gemini'ye metin (+ opsiyonel görsel) gönderip metin yanıtı alır
+async function geminiText(promptText, imageDataUrl) {
+  const parts = [{ text: promptText }];
+  if (imageDataUrl) {
+    const [meta, b64] = imageDataUrl.split(',');
+    const mime = meta.match(/data:(.*?);/)[1];
+    parts.push({ inline_data: { mime_type: mime, data: b64 } });
+  }
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TEXT_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }] })
+    }
+  );
   const data = await res.json();
   if (data.error) throw new Error(data.error.message);
-  let desc = data.choices[0].message.content.trim();
-  // Olası tırnak/markdown temizliği
+  const cand = data.candidates && data.candidates[0];
+  if (!cand) throw new Error('Gemini yanıt vermedi');
+  return cand.content.parts.map(p => p.text || '').join('').trim();
+}
+
+// Gemini ile görsel üretir → base64 data URL döndürür
+async function geminiImage(promptText) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
+    }
+  );
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  const cand = data.candidates && data.candidates[0];
+  if (!cand) throw new Error('Görsel üretilemedi');
+  // Görsel part'ını bul
+  for (const p of cand.content.parts) {
+    if (p.inline_data || p.inlineData) {
+      const inline = p.inline_data || p.inlineData;
+      const mime = inline.mime_type || inline.mimeType || 'image/png';
+      return `data:${mime};base64,${inline.data}`;
+    }
+  }
+  throw new Error('Yanıtta görsel yok');
+}
+
+// Referans görselin tarzını kelimelere döker (Gemini vision)
+async function analyzeRefStyle() {
+  setStatus('Referans görselin tarzı analiz ediliyor…', true);
+  const promptText = `Analyze ONLY the visual STYLE of this reference image — not its content or subject.
+Describe the artistic rendering technique in precise English keywords that can be appended to image generation prompts.
+Focus on: medium (e.g. pencil sketch, oil painting, 3D render), color treatment (e.g. grayscale, monochrome, muted pastel), line quality, shading method (e.g. soft cross-hatching, cel shading), texture, level of detail, and overall mood.
+Return ONLY a single comma-separated list of style descriptors in English. No sentences, no explanation, no mention of what objects are in the image. Example output: "graphite pencil sketch, grayscale, soft shading, realistic proportions, fine cross-hatching, muted tones, hand-drawn texture"`;
+  let desc = await geminiText(promptText, refImageBase64);
   desc = desc.replace(/^["'`]+|["'`]+$/g, '').replace(/\n/g, ' ').trim();
   return desc;
 }
@@ -774,12 +808,12 @@ function getStyleLabel() {
 
 function saveKey() {
   const val = document.getElementById('apiKeyInput').value.trim();
-  if (!val.startsWith('sk-')) {
+  if (!val.startsWith('AIza')) {
     showKeyStatus(false);
     return;
   }
   apiKey = val;
-  localStorage.setItem('frameai_openai_key', val);
+  localStorage.setItem('frameai_gemini_key', val);
   showKeyStatus(true);
 }
 
@@ -805,8 +839,8 @@ function setProgress(done, total) {
 }
 
 async function generate() {
-  if (!apiKey || !apiKey.startsWith('sk-')) {
-    setStatus('Önce OpenAI API key\'ini gir ve kaydet.', false);
+  if (!apiKey || !apiKey.startsWith('AIza')) {
+    setStatus('Önce Google AI Studio API key\'ini gir ve kaydet.', false);
     document.getElementById('apiKeyInput').focus();
     return;
   }
@@ -852,15 +886,7 @@ async function generate() {
       ? `\n\nÇOK ÖNEMLİ: Tüm kareler aynı görsel stilde olmalı. Yukarıdaki ZORUNLU GÖRSEL STİL tanımını HER karenin prompt'una eksiksiz ekle. Bu stil bir referans görselden çıkarıldı; renk tekniği, çizim tekniği ve atmosfer tüm karelerde tutarlı olmalı. Sahnenin içeriği değişse de stil asla değişmeyecek.`
       : '';
 
-    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 2200,
-        messages: [{
-          role: 'user',
-          content: `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
+    const promptGenText = `Sen profesyonel bir storyboard sanatçısı ve sinematografi uzmanısın.
 Aşağıdaki senaryo için tam olarak ${count} kare üret.
 ${styleText}
 En boy oranı: ${aspectRatio}
@@ -869,18 +895,12 @@ Senaryo: ${mainPrompt}${refNote}
 Her kare için:
 - title: kısa sahne başlığı (Türkçe, max 4 kelime)
 - desc: sahne özeti (Türkçe, 1 cümle)
-- prompt: gpt-image için İngilizce görsel prompt. Şu sırayla yaz: önce sahne içeriği (shot type, kamera açısı, ışık, atmosfer), sonra MUTLAKA bu stil ekini ekle: "${stylePromptPart}${aspectRatio} aspect ratio". Her kare farklı kompozisyon olsun ama stil eki tüm karelerde AYNI kalsın.
+- prompt: görsel üretimi için İngilizce prompt. Şu sırayla yaz: önce sahne içeriği (shot type, kamera açısı, ışık, atmosfer), sonra MUTLAKA bu stil ekini ekle: "${stylePromptPart}${aspectRatio} aspect ratio". Her kare farklı kompozisyon olsun ama stil eki tüm karelerde AYNI kalsın.
 
-SADECE JSON array döndür:
-[{"title":"...","desc":"...","prompt":"..."},...]`
-        }]
-      })
-    });
+SADECE geçerli JSON array döndür, markdown veya açıklama yazma:
+[{"title":"...","desc":"...","prompt":"..."},...]`;
 
-    const chatData = await chatRes.json();
-    if (chatData.error) throw new Error(chatData.error.message);
-
-    const raw = chatData.choices[0].message.content;
+    const raw = await geminiText(promptGenText);
     const clean = raw.replace(/```json|```/g, '').trim();
     frames = JSON.parse(clean).slice(0, count).map(f => ({ ...f, img: null, status: 'pending' }));
 
@@ -908,22 +928,16 @@ async function generateImages(arSel) {
   const CONCURRENCY = 2;
   let idx = 0;
 
-  // gpt-image-1 sadece 3 boyut destekler: 1024x1024, 1536x1024 (yatay), 1024x1536 (dikey)
-  const w = parseInt(arSel.selectedOptions[0].dataset.w);
-  const h = parseInt(arSel.selectedOptions[0].dataset.h);
-  let imageSize;
-  if (Math.abs(w - h) < 60) imageSize = '1024x1024';
-  else if (w > h) imageSize = '1536x1024';
-  else imageSize = '1024x1536';
-
-  // Her kareye imageSize'ı kaydet ki sonradan yeniden üretebilelim
-  frames.forEach(f => { f.imageSize = imageSize; });
+  // Gemini'de boyut parametresi yok; oran prompt metnine gömülü.
+  // Yine de oranı kaydedelim (grid/modal görünümü için kullanılıyor).
+  const aspectRatio = arSel.value;
+  frames.forEach(f => { f.aspectRatio = aspectRatio; });
 
   async function next() {
     while (idx < total) {
       const i = idx++;
       updateFrameStatus(i, 'generating');
-      await generateSingleImage(i, imageSize);
+      await generateSingleImage(i);
       doneCount++;
       setProgress(doneCount, total);
     }
@@ -934,26 +948,9 @@ async function generateImages(arSel) {
 }
 
 // Tek bir kareyi üretir (hem toplu hem yeniden-üret bunu kullanır)
-async function generateSingleImage(i, imageSize) {
+async function generateSingleImage(i) {
   try {
-    // Stil artık prompt metnine gömülü olduğu için her zaman generations kullanıyoruz.
-    // (edits endpoint referansı base görsel sayıp üstüne çizdiği için tarzı bozuyordu.)
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'gpt-image-1',
-        prompt: frames[i].prompt,
-        n: 1,
-        size: imageSize
-      })
-    });
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-
-    const b64 = data.data[0].b64_json;
-    const src = 'data:image/png;base64,' + b64;
+    const src = await geminiImage(frames[i].prompt);
     frames[i].img = src;
     frames[i].status = 'done';
     updateFrameImage(i, src);
@@ -970,7 +967,6 @@ async function generateSingleImage(i, imageSize) {
 async function regenerateFrame(i) {
   if (!apiKey) return;
   const f = frames[i];
-  const imageSize = f.imageSize || '1536x1024';
 
   // Kareyi loading durumuna al
   f.status = 'generating';
@@ -987,7 +983,7 @@ async function regenerateFrame(i) {
   if (overlay) overlay.style.display = 'none';
   updateFrameStatus(i, 'generating');
 
-  await generateSingleImage(i, imageSize);
+  await generateSingleImage(i);
   if (regenBtn) regenBtn.classList.remove('spinning');
 }
 
